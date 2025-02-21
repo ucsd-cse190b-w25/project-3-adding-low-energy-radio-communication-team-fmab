@@ -23,6 +23,21 @@
 
 #include <stdlib.h>
 
+#include <stdint.h>
+#include <stdio.h>
+
+/* Include memory map of our MCU */
+#include <stm32l475xx.h>
+
+/* Include LED driver */
+#include "leds.h"
+#include "timer.h"
+
+/* include i2c driver*/
+#include "i2c.h"
+#include "lsm6dsl.h"
+#include "math.h"
+
 int dataAvailable = 0;
 
 SPI_HandleTypeDef hspi3;
@@ -58,19 +73,57 @@ int main(void)
 
   uint8_t nonDiscoverable = 0;
 
-  while (1)
-  {
-	  if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
-	    catchBLE();
-	  }else{
-		  HAL_Delay(1000);
-		  // Send a string to the NORDIC UART service, remember to not include the newline
-		  unsigned char test_str[] = "youlostit BLE test";
-		  updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
+  /*leds_init();
+	timer_init(TIM2);
+	i2c_init();
+	lsm6dsl_init();
+	/*put lost detection algorithm here
+	poll continuously the values of the output registers.
+
+	// Loop forever
+	int16_t prev_x = 0;
+	int16_t prev_y = 0;
+	int16_t prev_z = 0;
+	for(;;) {
+		int16_t x;
+		int16_t y;
+		int16_t z;
+		lsm6dsl_read_xyz(&x,&y,&z);
+
+		if(!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
+			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
+				lostFlag = 0;   //it is not lost
+				startTimer = 0;   //stop the 1min timer since its not lost
+				leds_set(0);   //reset leds to off whenever it switches from lost to not lost
+			}
+			else {  //it moved less than the threshold, so we say its lost
+				startTimer = 1;
+			}
+		}
+		prev_x = x;   //set prev to be equal to the current x
+		prev_y = y;
+		prev_z = z;
+
+		//debugging print flags
+		//printf("x: %d y: %d z: %d\n", x,y,z);
+		//printf("lostFlag status %d\n", lostFlag);
+	}*/
+
+
+
+	while (1)
+	  {
+		  if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+			catchBLE();
+		  }else{
+			  HAL_Delay(1000);
+			  // Send a string to the NORDIC UART service, remember to not include the newline
+			  unsigned char test_str[] = "youlostit BLE test";
+			  updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
+		  }
+		  // Wait for interrupt, only uncomment if low power is needed
+		  //__WFI();
 	  }
-	  // Wait for interrupt, only uncomment if low power is needed
-	  //__WFI();
-  }
 }
 
 /**
@@ -233,6 +286,67 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
+
+
+/*void TIM2_IRQHandler() {
+
+	  // Check if the interrupt was caused by the update event
+	if (TIM2->SR & TIM_SR_UIF) {
+		//Clear the update interrupt flag
+		TIM2->SR &= ~TIM_SR_UIF;
+	}*/
+
+	/*have a counter that counts up every time we enter interrupt when its lost.
+	 * Enters interrupt 20 times per second (20hz), so counterup = 1200 means its been 1 min
+	 */
+
+	/*if(startTimer == 1) {
+		counterup = counterup + 1;  //only start counting when the thing isn't moving
+	}
+	else {
+		counterup = 0;
+	}
+
+	if (counterup >= 1200) {
+		lostFlag = 1;   //it is lost
+		if(preamble != 0) {
+			uint8_t bitmask1 = preamble;
+			//push the left 2 bits all the way to the right
+			//so if we have 10011001 as preamble, then I push the leftmost 2 bits all the way to the right to get 00000010
+			//then I call leds_set using those 2 bits
+			bitmask1 >>= 6;
+			leds_set(bitmask1);         //turn on the leds based on the 2 bits that I just pushed over
+			//next I shift the preamble left by 2 bits so that I can repeat with the next 2 bits
+			//so if I have preamble as 10011001, I end up with 01100100
+			preamble <<= 2;        //left shift by 2 so i can read the next 2 bits
+		}
+		else if (ID != 0) {
+
+			//repeat preamble algorithm with ID
+			uint16_t bitmask2 = ID;
+			bitmask2 >>= 14;       //push leftmost 2 bits all the way to the right
+			leds_set(bitmask2);      //call leds_set on the 2 bits
+			ID <<= 2;      //shift left by 2 bits to read the next 2 bits
+		}
+		else if (numMinutes != 0) {
+			uint8_t minutesLost = numMinutes;
+			//push the left 2 bits all the way to the right
+			//so if we have 00001010 as minutes since lost, then I push the leftmost 2 bits all the way to the right to get 00000000
+			//then I call leds_set using those 2 bits
+			minutesLost >>= 6;
+			leds_set(minutesLost);         //turn on the leds based on the 2 bits that I just pushed over
+			//next I shift the numminutes over by 2 bits so that I can repeat with the next 2 bits
+			//so if I have 00001010 as minutes since lost, I shift left to have 00101000
+			numMinutes <<= 2;        //left shift by 2 so i can read the next 2 bits
+		}
+		else {    //reset preamble,ID, and minutes since lost when done blinking through all of them
+			preamble = 0x99;    //preamble in hex
+			ID = 7663;      //Phils ID
+			numMinutes = (uint8_t)(floor(counterup/1200));
+			//every 1200 counts is 1min, floor function to make sure its always an integer
+		}
+	}
+}*/
 
 #ifdef  USE_FULL_ASSERT
 /**
