@@ -38,6 +38,14 @@
 #include "lsm6dsl.h"
 #include "math.h"
 
+volatile uint8_t preamble = 0x99;    //preamble in hex
+volatile uint16_t ID = 7663;      //Phils ID
+volatile int counterup = 0;      //counter so that we can track when 1min has passed
+volatile int threshold = 1500;     //threshold for accelerometer movement
+volatile int lostFlag = 0;  //0 means not lost, 1 means lost
+volatile int startTimer = 0;     //0 means the 1min lost timer is not on, 1 means the 1min lost timer is on
+volatile uint8_t numMinutes = 1;   //minutes since lost
+
 int dataAvailable = 0;
 
 SPI_HandleTypeDef hspi3;
@@ -69,16 +77,18 @@ int main(void)
 
   ble_init();
 
+  leds_init();
+	timer_init(TIM2);
+	i2c_init();
+	lsm6dsl_init();
+
   HAL_Delay(10);
 
   uint8_t nonDiscoverable = 0;
 
-  /*leds_init();
-	timer_init(TIM2);
-	i2c_init();
-	lsm6dsl_init();
-	/*put lost detection algorithm here
-	poll continuously the values of the output registers.
+
+	//put lost detection algorithm here
+	//poll continuously the values of the output registers.
 
 	// Loop forever
 	int16_t prev_x = 0;
@@ -107,7 +117,7 @@ int main(void)
 		//debugging print flags
 		//printf("x: %d y: %d z: %d\n", x,y,z);
 		//printf("lostFlag status %d\n", lostFlag);
-	}*/
+	}
 
 
 
@@ -288,19 +298,19 @@ void Error_Handler(void)
 }
 
 
-/*void TIM2_IRQHandler() {
+void TIM2_IRQHandler() {
 
 	  // Check if the interrupt was caused by the update event
 	if (TIM2->SR & TIM_SR_UIF) {
 		//Clear the update interrupt flag
 		TIM2->SR &= ~TIM_SR_UIF;
-	}*/
+	}
 
 	/*have a counter that counts up every time we enter interrupt when its lost.
 	 * Enters interrupt 20 times per second (20hz), so counterup = 1200 means its been 1 min
 	 */
 
-	/*if(startTimer == 1) {
+	if(startTimer == 1) {
 		counterup = counterup + 1;  //only start counting when the thing isn't moving
 	}
 	else {
@@ -346,7 +356,7 @@ void Error_Handler(void)
 			//every 1200 counts is 1min, floor function to make sure its always an integer
 		}
 	}
-}*/
+}
 
 #ifdef  USE_FULL_ASSERT
 /**
