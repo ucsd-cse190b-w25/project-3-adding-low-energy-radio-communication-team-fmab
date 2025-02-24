@@ -45,6 +45,7 @@ volatile int threshold = 1500;     //threshold for accelerometer movement
 volatile int lostFlag = 0;  //0 means not lost, 1 means lost
 volatile int startTimer = 0;     //0 means the 1min lost timer is not on, 1 means the 1min lost timer is on
 volatile uint8_t numMinutes = 1;   //minutes since lost
+volatile uint8_t nonDiscoverable = 0;
 
 int dataAvailable = 0;
 
@@ -77,14 +78,15 @@ int main(void)
 
   ble_init();
 
-  leds_init();
-	timer_init(TIM2);
-	i2c_init();
-	lsm6dsl_init();
+
 
   HAL_Delay(10);
+  leds_init();
+  timer_init(TIM2);
+  i2c_init();
+  lsm6dsl_init();
 
-  uint8_t nonDiscoverable = 0;
+  //uint8_t nonDiscoverable = 0;
 
 
 	//put lost detection algorithm here
@@ -319,6 +321,16 @@ void TIM2_IRQHandler() {
 
 	if (counterup >= 1200) {
 		lostFlag = 1;   //it is lost
+		if((counterup % 200) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
+			if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+				catchBLE();
+			}else{
+				//HAL_Delay(1000);
+				// Send a string to the NORDIC UART service, remember to not include the newline
+				unsigned char test_str[] = "FMABtag has been missing for";
+				updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
+			}
+		}
 		if(preamble != 0) {
 			uint8_t bitmask1 = preamble;
 			//push the left 2 bits all the way to the right
