@@ -38,6 +38,13 @@
 #include "lsm6dsl.h"
 #include "math.h"
 
+volatile int counterup = 0;      //counter so that we can track when 1min has passed
+volatile int threshold = 1500;     //threshold for accelerometer movement
+//volatile int lostFlag = 0;  //0 means not lost, 1 means lost
+volatile int startTimer = 0;     //0 means the 1min lost timer is not on, 1 means the 1min lost timer is on
+volatile uint8_t numMinutes = 1;   //minutes since lost
+volatile uint8_t sendFlag = 0;    //flag to see if you should send the tag message
+
 int dataAvailable = 0;
 
 SPI_HandleTypeDef hspi3;
@@ -50,6 +57,17 @@ static void MX_SPI3_Init(void);
   * @brief  The application entry point.
   * @retval int
   */
+
+int _write(int file, char *ptr, int len) {
+	//ITM_SendChar('H');
+    int i = 0;
+    for (i = 0; i < len; i++) {
+        ITM_SendChar(*ptr++);
+    }
+    return len;
+}
+
+
 int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -73,12 +91,12 @@ int main(void)
 
   uint8_t nonDiscoverable = 0;
 
-  /*leds_init();
+  	leds_init();
 	timer_init(TIM2);
 	i2c_init();
 	lsm6dsl_init();
-	/*put lost detection algorithm here
-	poll continuously the values of the output registers.
+	//put lost detection algorithm here
+	//poll continuously the values of the output registers.
 
 	// Loop forever
 	int16_t prev_x = 0;
@@ -92,7 +110,7 @@ int main(void)
 
 		if(!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
-				lostFlag = 0;   //it is not lost
+				//lostFlag = 0;   //it is not lost
 				startTimer = 0;   //stop the 1min timer since its not lost
 				leds_set(0);   //reset leds to off whenever it switches from lost to not lost
 			}
@@ -104,14 +122,28 @@ int main(void)
 		prev_y = y;
 		prev_z = z;
 
+		if(sendFlag) {
+			if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+				catchBLE();
+				printf("it is here\n");
+			}else{
+				HAL_Delay(500);
+				// Send a string to the NORDIC UART service, remember to not include the newline
+				unsigned char test_str[] = "FMABtag";
+				updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
+			}
+			HAL_Delay(500);
+			sendFlag = 0;
+			leds_set(0);
+		}
 		//debugging print flags
 		//printf("x: %d y: %d z: %d\n", x,y,z);
 		//printf("lostFlag status %d\n", lostFlag);
-	}*/
+	}
 
 
 
-	while (1)
+	/*while (1)
 	  {
 		  if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
 			catchBLE();
@@ -123,7 +155,7 @@ int main(void)
 		  }
 		  // Wait for interrupt, only uncomment if low power is needed
 		  //__WFI();
-	  }
+	  }*/
 }
 
 /**
@@ -288,19 +320,19 @@ void Error_Handler(void)
 }
 
 
-/*void TIM2_IRQHandler() {
+void TIM2_IRQHandler() {
 
 	  // Check if the interrupt was caused by the update event
 	if (TIM2->SR & TIM_SR_UIF) {
 		//Clear the update interrupt flag
 		TIM2->SR &= ~TIM_SR_UIF;
-	}*/
+	}
 
-	/*have a counter that counts up every time we enter interrupt when its lost.
-	 * Enters interrupt 20 times per second (20hz), so counterup = 1200 means its been 1 min
-	 */
+	//have a counter that counts up every time we enter interrupt when its lost.
+	// Enters interrupt 20 times per second (20hz), so counterup = 1200 means its been 1 min
 
-	/*if(startTimer == 1) {
+
+	if(startTimer == 1) {
 		counterup = counterup + 1;  //only start counting when the thing isn't moving
 	}
 	else {
@@ -308,8 +340,13 @@ void Error_Handler(void)
 	}
 
 	if (counterup >= 1200) {
-		lostFlag = 1;   //it is lost
-		if(preamble != 0) {
+		printf("%d\n", counterup);
+		if((counterup % 200) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
+			//lostFlag = 1;   //it is lost
+			sendFlag = 1;
+			leds_set(3);
+		}
+		/*if(preamble != 0) {
 			uint8_t bitmask1 = preamble;
 			//push the left 2 bits all the way to the right
 			//so if we have 10011001 as preamble, then I push the leftmost 2 bits all the way to the right to get 00000010
@@ -344,9 +381,10 @@ void Error_Handler(void)
 			ID = 7663;      //Phils ID
 			numMinutes = (uint8_t)(floor(counterup/1200));
 			//every 1200 counts is 1min, floor function to make sure its always an integer
-		}
+		}*/
+		numMinutes = (uint8_t)(floor(counterup/1200));
 	}
-}*/
+}
 
 #ifdef  USE_FULL_ASSERT
 /**

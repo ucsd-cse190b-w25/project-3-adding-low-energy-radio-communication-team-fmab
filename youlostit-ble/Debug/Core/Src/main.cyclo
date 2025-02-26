@@ -1,5 +1,8 @@
-../Core/Src/main.c:53:5:main	3
-../Core/Src/main.c:134:6:SystemClock_Config	4
-../Core/Src/main.c:180:13:MX_SPI3_Init	2
-../Core/Src/main.c:220:13:MX_GPIO_Init	1
-../Core/Src/main.c:279:6:Error_Handler	1
+../Drivers/CMSIS/Include/core_cm4.h:2059:26:ITM_SendChar	4
+../Core/Src/main.c:61:5:_write	2
+../Core/Src/main.c:71:5:main	10
+../Core/Src/main.c:166:6:SystemClock_Config	4
+../Core/Src/main.c:212:13:MX_SPI3_Init	2
+../Core/Src/main.c:252:13:MX_GPIO_Init	1
+../Core/Src/main.c:311:6:Error_Handler	1
+../Core/Src/main.c:323:6:TIM2_IRQHandler	5
