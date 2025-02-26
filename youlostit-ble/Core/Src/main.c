@@ -38,11 +38,13 @@
 #include "lsm6dsl.h"
 #include "math.h"
 
+
 //volatile uint8_t preamble = 0x99;    //preamble in hex
 //volatile uint16_t ID = 7663;      //Phils ID
 volatile int counterup = 0;      //counter so that we can track when 1min has passed
 volatile int threshold = 1500;     //threshold for accelerometer movement
 volatile int lostFlag = 0;  //0 means not lost, 1 means lost
+//volatile int lostFlag = 0;  //0 means not lost, 1 means lost
 volatile int startTimer = 0;     //0 means the 1min lost timer is not on, 1 means the 1min lost timer is on
 volatile uint8_t numMinutes = 1;   //minutes since lost
 volatile uint8_t sendFlag = 0;    //flag to see if you should send the tag message
@@ -93,13 +95,13 @@ int main(void)
 
   HAL_Delay(10);
 
-  leds_init();
-  timer_init(TIM2);
-  i2c_init();
-  lsm6dsl_init();
-
   uint8_t nonDiscoverable = 0;
 
+
+  	leds_init();
+	timer_init(TIM2);
+	i2c_init();
+	lsm6dsl_init();
 
 	//put lost detection algorithm here
 	//poll continuously the values of the output registers.
@@ -127,17 +129,20 @@ int main(void)
 		prev_x = x;   //set prev to be equal to the current x
 		prev_y = y;
 		prev_z = z;
+
 		if(sendFlag) {
 			if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
 				catchBLE();
 				printf("it is here\n");
 			}else{
-				HAL_Delay(1000);
+
+				HAL_Delay(500);
+
 				// Send a string to the NORDIC UART service, remember to not include the newline
 				unsigned char test_str[] = "FMABtag";
 				updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
 			}
-			HAL_Delay(1000);
+			HAL_Delay(500);
 			sendFlag = 0;
 			leds_set(0);
 		}
@@ -148,20 +153,21 @@ int main(void)
 
 
 
-  /*while (1)
-  	  {
-  		  if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
-  			catchBLE();
-  		  }else{
-  			  HAL_Delay(1000);
-  			  // Send a string to the NORDIC UART service, remember to not include the newline
-  			  unsigned char test_str[] = "youlostit BLE test";
-  			  updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
-  		  }
-  		  // Wait for interrupt, only uncomment if low power is needed
-  		  //__WFI();
-  	  }*/
-}
+
+
+	/*while (1)
+	  {
+		  if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+			catchBLE();
+		  }else{
+			  HAL_Delay(1000);
+			  // Send a string to the NORDIC UART service, remember to not include the newline
+			  unsigned char test_str[] = "youlostit BLE test";
+			  updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
+		  }
+		  // Wait for interrupt, only uncomment if low power is needed
+		  //__WFI();
+	  }*/
 
 
 /**
@@ -334,9 +340,9 @@ void TIM2_IRQHandler() {
 		TIM2->SR &= ~TIM_SR_UIF;
 	}
 
-	/*have a counter that counts up every time we enter interrupt when its lost.
-	 * Enters interrupt 20 times per second (20hz), so counterup = 1200 means its been 1 min
-	 */
+	//have a counter that counts up every time we enter interrupt when its lost.
+	// Enters interrupt 20 times per second (20hz), so counterup = 1200 means its been 1 min
+
 
 	if(startTimer == 1) {
 		counterup = counterup + 1;  //only start counting when the thing isn't moving
@@ -350,9 +356,9 @@ void TIM2_IRQHandler() {
 
 		printf("%d\n", counterup);
 		if((counterup % 200) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
+			//lostFlag = 1;   //it is lost
 			sendFlag = 1;
-			leds_set(3);  //set the LED 2 for send flag
-			//printf("reaches here\n");
+			leds_set(3);
 		}
 		/*if(preamble != 0) {
 			uint8_t bitmask1 = preamble;
