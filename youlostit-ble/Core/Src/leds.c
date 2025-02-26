@@ -64,7 +64,7 @@ void leds_set(uint8_t led)
 		GPIOA->ODR &= ~GPIO_ODR_OD5;
 
 		//turn off led2 (PB14)
-		GPIOB->ODR |= ~GPIO_ODR_OD14;
+		GPIOB->ODR &= ~GPIO_ODR_OD14;
 	}
 	if (led == 1) {
 		//turn on led1 (PA5)

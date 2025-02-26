@@ -38,14 +38,14 @@
 #include "lsm6dsl.h"
 #include "math.h"
 
-volatile uint8_t preamble = 0x99;    //preamble in hex
-volatile uint16_t ID = 7663;      //Phils ID
+//volatile uint8_t preamble = 0x99;    //preamble in hex
+//volatile uint16_t ID = 7663;      //Phils ID
 volatile int counterup = 0;      //counter so that we can track when 1min has passed
 volatile int threshold = 1500;     //threshold for accelerometer movement
 volatile int lostFlag = 0;  //0 means not lost, 1 means lost
 volatile int startTimer = 0;     //0 means the 1min lost timer is not on, 1 means the 1min lost timer is on
 volatile uint8_t numMinutes = 1;   //minutes since lost
-volatile uint8_t nonDiscoverable = 0;
+volatile uint8_t sendFlag = 0;    //flag to see if you should send the tag message
 
 int dataAvailable = 0;
 
@@ -59,6 +59,17 @@ static void MX_SPI3_Init(void);
   * @brief  The application entry point.
   * @retval int
   */
+
+
+int _write(int file, char *ptr, int len) {
+	//ITM_SendChar('H');
+    int i = 0;
+    for (i = 0; i < len; i++) {
+        ITM_SendChar(*ptr++);
+    }
+    return len;
+}
+
 int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -81,12 +92,13 @@ int main(void)
 
 
   HAL_Delay(10);
+
   leds_init();
   timer_init(TIM2);
   i2c_init();
   lsm6dsl_init();
 
-  //uint8_t nonDiscoverable = 0;
+  uint8_t nonDiscoverable = 0;
 
 
 	//put lost detection algorithm here
@@ -104,7 +116,7 @@ int main(void)
 
 		if(!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
-				lostFlag = 0;   //it is not lost
+				//lostFlag = 0;   //it is not lost
 				startTimer = 0;   //stop the 1min timer since its not lost
 				leds_set(0);   //reset leds to off whenever it switches from lost to not lost
 			}
@@ -115,7 +127,20 @@ int main(void)
 		prev_x = x;   //set prev to be equal to the current x
 		prev_y = y;
 		prev_z = z;
-
+		if(sendFlag) {
+			if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+				catchBLE();
+				printf("it is here\n");
+			}else{
+				HAL_Delay(1000);
+				// Send a string to the NORDIC UART service, remember to not include the newline
+				unsigned char test_str[] = "FMABtag";
+				updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
+			}
+			HAL_Delay(1000);
+			sendFlag = 0;
+			leds_set(0);
+		}
 		//debugging print flags
 		//printf("x: %d y: %d z: %d\n", x,y,z);
 		//printf("lostFlag status %d\n", lostFlag);
@@ -123,20 +148,21 @@ int main(void)
 
 
 
-	while (1)
-	  {
-		  if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
-			catchBLE();
-		  }else{
-			  HAL_Delay(1000);
-			  // Send a string to the NORDIC UART service, remember to not include the newline
-			  unsigned char test_str[] = "youlostit BLE test";
-			  updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
-		  }
-		  // Wait for interrupt, only uncomment if low power is needed
-		  //__WFI();
-	  }
+  /*while (1)
+  	  {
+  		  if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+  			catchBLE();
+  		  }else{
+  			  HAL_Delay(1000);
+  			  // Send a string to the NORDIC UART service, remember to not include the newline
+  			  unsigned char test_str[] = "youlostit BLE test";
+  			  updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
+  		  }
+  		  // Wait for interrupt, only uncomment if low power is needed
+  		  //__WFI();
+  	  }*/
 }
+
 
 /**
   * @brief System Clock Configuration
@@ -320,18 +346,15 @@ void TIM2_IRQHandler() {
 	}
 
 	if (counterup >= 1200) {
-		lostFlag = 1;   //it is lost
+		//lostFlag = 1;   //it is lost
+
+		printf("%d\n", counterup);
 		if((counterup % 200) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
-			if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
-				catchBLE();
-			}else{
-				//HAL_Delay(1000);
-				// Send a string to the NORDIC UART service, remember to not include the newline
-				unsigned char test_str[] = "FMABtag has been missing for";
-				updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
-			}
+			sendFlag = 1;
+			leds_set(3);  //set the LED 2 for send flag
+			//printf("reaches here\n");
 		}
-		if(preamble != 0) {
+		/*if(preamble != 0) {
 			uint8_t bitmask1 = preamble;
 			//push the left 2 bits all the way to the right
 			//so if we have 10011001 as preamble, then I push the leftmost 2 bits all the way to the right to get 00000010
@@ -364,9 +387,10 @@ void TIM2_IRQHandler() {
 		else {    //reset preamble,ID, and minutes since lost when done blinking through all of them
 			preamble = 0x99;    //preamble in hex
 			ID = 7663;      //Phils ID
-			numMinutes = (uint8_t)(floor(counterup/1200));
+
 			//every 1200 counts is 1min, floor function to make sure its always an integer
-		}
+		}*/
+		numMinutes = (uint8_t)(floor(counterup/1200));
 	}
 }
 
