@@ -44,7 +44,6 @@
 volatile int counterup = 0;      //counter so that we can track when 1min has passed
 volatile int threshold = 1500;     //threshold for accelerometer movement
 volatile int lostFlag = 0;  //0 means not lost, 1 means lost
-//volatile int lostFlag = 0;  //0 means not lost, 1 means lost
 volatile int startTimer = 0;     //0 means the 1min lost timer is not on, 1 means the 1min lost timer is on
 volatile uint8_t numMinutes = 1;   //minutes since lost
 volatile uint8_t sendFlag = 0;    //flag to see if you should send the tag message
@@ -95,7 +94,7 @@ int main(void)
 
   HAL_Delay(10);
 
-  uint8_t nonDiscoverable = 0;
+  uint8_t nonDiscoverable = 1;// by default be nondiscoverable
 
 
   	leds_init();
@@ -118,17 +117,23 @@ int main(void)
 
 		if(!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
-				//lostFlag = 0;   //it is not lost
+				lostFlag = 0;   //it is not lost
+				setDiscoverability(0);    //make it nonDiscoverable
 				startTimer = 0;   //stop the 1min timer since its not lost
 				leds_set(0);   //reset leds to off whenever it switches from lost to not lost
 			}
 			else {  //it moved less than the threshold, so we say its lost
 				startTimer = 1;
+
 			}
 		}
 		prev_x = x;   //set prev to be equal to the current x
 		prev_y = y;
 		prev_z = z;
+
+		if(lostFlag) {   //if it is lost, set discoverable
+			setDiscoverability(1);
+		}
 
 		if(sendFlag) {
 			if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
@@ -352,11 +357,10 @@ void TIM2_IRQHandler() {
 	}
 
 	if (counterup >= 1200) {
-		//lostFlag = 1;   //it is lost
+		lostFlag = 1;   //it is lost
 
 		printf("%d\n", counterup);
 		if((counterup % 200) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
-			//lostFlag = 1;   //it is lost
 			sendFlag = 1;
 			leds_set(3);
 		}
