@@ -94,27 +94,36 @@ int main(void)
 
   HAL_Delay(10);
 
-  uint8_t nonDiscoverable = 1;// by default be nondiscoverable
-
-
-  	leds_init();
+  leds_init();
 	timer_init(TIM2);
 	i2c_init();
 	lsm6dsl_init();
+  uint8_t nonDiscoverable = 0;// by default be nondiscoverable
+  //disconnectBLE();   //disconnect before setting discoverability to 0
+  setDiscoverability(0);   //make it nonDiscoverable
+  int16_t prev_x = 0;
+  	int16_t prev_y = 0;
+  	int16_t prev_z = 0;
+
 
 	//put lost detection algorithm here
 	//poll continuously the values of the output registers.
 
+	if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+	catchBLE();
+	printf("it is here\n");
 	// Loop forever
-	int16_t prev_x = 0;
-	int16_t prev_y = 0;
-	int16_t prev_z = 0;
-	for(;;) {
+
+	while(1) {
+		if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+			catchBLE();
+			printf("it is here\n");
+		}
 		int16_t x;
 		int16_t y;
 		int16_t z;
 		lsm6dsl_read_xyz(&x,&y,&z);
-
+		//printf("running loop\n");
 		if(!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
 				lostFlag = 0;   //it is not lost
@@ -136,19 +145,19 @@ int main(void)
 			setDiscoverability(1);
 		}
 
+		if(sendFlag) {
 
-		if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
-			catchBLE();
-			//printf("it is here\n");
-		}else{
-			if(sendFlag) {
-				HAL_Delay(50);
+			}
+		else{
+
+				HAL_Delay(500);
 
 				// Send a string to the NORDIC UART service, remember to not include the newline
 				unsigned char test_str[] = "FMABtag";
 				updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
+
 			}
-			HAL_Delay(50);
+			HAL_Delay(500);
 			sendFlag = 0;
 			leds_set(0);
 		}
@@ -156,6 +165,7 @@ int main(void)
 		//printf("x: %d y: %d z: %d\n", x,y,z);
 		//printf("lostFlag status %d\n", lostFlag);
 	}
+}
 
 
 
