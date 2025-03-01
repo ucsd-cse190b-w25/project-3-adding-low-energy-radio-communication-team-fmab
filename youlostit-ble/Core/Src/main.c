@@ -45,7 +45,8 @@ volatile int counterup = 0;      //counter so that we can track when 1min has pa
 volatile int threshold = 1500;     //threshold for accelerometer movement
 volatile int lostFlag = 0;  //0 means not lost, 1 means lost
 volatile int startTimer = 0;     //0 means the 1min lost timer is not on, 1 means the 1min lost timer is on
-volatile uint8_t numMinutes = 1;   //minutes since lost
+//volatile unsigned int numMinutes = 1;   //minutes since lost
+volatile unsigned int numSeconds = 0;
 volatile uint8_t sendFlag = 0;    //flag to see if you should send the tag message
 
 int dataAvailable = 0;
@@ -94,34 +95,40 @@ int main(void)
 
   HAL_Delay(10);
 
-  uint8_t nonDiscoverable = 1;// by default be nondiscoverable
+  leds_init();
+  timer_init(TIM2);
+  i2c_init();
+  lsm6dsl_init();
+  uint8_t nonDiscoverable = 0;// by default be nondiscoverable
+  setDiscoverability(0);   //make it nonDiscoverable
+  int16_t prev_x = 0;
+  int16_t prev_y = 0;
+  int16_t prev_z = 0;
 
-
-  	leds_init();
-	timer_init(TIM2);
-	i2c_init();
-	lsm6dsl_init();
 
 	//put lost detection algorithm here
 	//poll continuously the values of the output registers.
 
+	if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+	catchBLE();
+	printf("it is here\n");
 	// Loop forever
-	int16_t prev_x = 0;
-	int16_t prev_y = 0;
-	int16_t prev_z = 0;
-	for(;;) {
+	}
+
+	while(1) {
+		if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
+			catchBLE();
+		}
 		int16_t x;
 		int16_t y;
 		int16_t z;
 		lsm6dsl_read_xyz(&x,&y,&z);
-
 		if(!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
 				lostFlag = 0;   //it is not lost
 				disconnectBLE();   //disconnect before setting discoverability to 0
 				setDiscoverability(0);    //make it nonDiscoverable
 				startTimer = 0;   //stop the 1min timer since its not lost
-				leds_set(0);   //reset leds to off whenever it switches from lost to not lost
 			}
 			else {  //it moved less than the threshold, so we say its lost
 				startTimer = 1;
@@ -136,44 +143,19 @@ int main(void)
 			setDiscoverability(1);
 		}
 
-
-		if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
-			catchBLE();
-			//printf("it is here\n");
-		}else{
-			if(sendFlag) {
-				HAL_Delay(50);
-
-				// Send a string to the NORDIC UART service, remember to not include the newline
-				unsigned char test_str[] = "FMABtag";
-				updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
-			}
-			HAL_Delay(50);
-			sendFlag = 0;
-			leds_set(0);
+		if(sendFlag) {
+			// Send a string to the NORDIC UART service, remember to not include the newline
+			unsigned char test_str[20] = "FMtag lost for";
+			snprintf(test_str, 20, "FMtag lost for %ds", numSeconds);
+			updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
 		}
-		//debugging print flags
-		//printf("x: %d y: %d z: %d\n", x,y,z);
-		//printf("lostFlag status %d\n", lostFlag);
+		//HAL_Delay(50);
+		sendFlag = 0;
 	}
+}
 
 
 
-
-
-	/*while (1)
-	  {
-		  if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
-			catchBLE();
-		  }else{
-			  HAL_Delay(1000);
-			  // Send a string to the NORDIC UART service, remember to not include the newline
-			  unsigned char test_str[] = "youlostit BLE test";
-			  updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
-		  }
-		  // Wait for interrupt, only uncomment if low power is needed
-		  //__WFI();
-	  }*/
 
 
 /**
@@ -360,48 +342,13 @@ void TIM2_IRQHandler() {
 	if (counterup >= 1200) {
 		lostFlag = 1;   //it is lost
 
-		printf("%d\n", counterup);
+		//printf("%d\n", counterup);
 		if((counterup % 200) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
 			sendFlag = 1;
-			leds_set(3);
-		}
-		/*if(preamble != 0) {
-			uint8_t bitmask1 = preamble;
-			//push the left 2 bits all the way to the right
-			//so if we have 10011001 as preamble, then I push the leftmost 2 bits all the way to the right to get 00000010
-			//then I call leds_set using those 2 bits
-			bitmask1 >>= 6;
-			leds_set(bitmask1);         //turn on the leds based on the 2 bits that I just pushed over
-			//next I shift the preamble left by 2 bits so that I can repeat with the next 2 bits
-			//so if I have preamble as 10011001, I end up with 01100100
-			preamble <<= 2;        //left shift by 2 so i can read the next 2 bits
-		}
-		else if (ID != 0) {
 
-			//repeat preamble algorithm with ID
-			uint16_t bitmask2 = ID;
-			bitmask2 >>= 14;       //push leftmost 2 bits all the way to the right
-			leds_set(bitmask2);      //call leds_set on the 2 bits
-			ID <<= 2;      //shift left by 2 bits to read the next 2 bits
 		}
-		else if (numMinutes != 0) {
-			uint8_t minutesLost = numMinutes;
-			//push the left 2 bits all the way to the right
-			//so if we have 00001010 as minutes since lost, then I push the leftmost 2 bits all the way to the right to get 00000000
-			//then I call leds_set using those 2 bits
-			minutesLost >>= 6;
-			leds_set(minutesLost);         //turn on the leds based on the 2 bits that I just pushed over
-			//next I shift the numminutes over by 2 bits so that I can repeat with the next 2 bits
-			//so if I have 00001010 as minutes since lost, I shift left to have 00101000
-			numMinutes <<= 2;        //left shift by 2 so i can read the next 2 bits
-		}
-		else {    //reset preamble,ID, and minutes since lost when done blinking through all of them
-			preamble = 0x99;    //preamble in hex
-			ID = 7663;      //Phils ID
 
-			//every 1200 counts is 1min, floor function to make sure its always an integer
-		}*/
-		numMinutes = (uint8_t)(floor(counterup/1200));
+		numSeconds = (unsigned int)(floor((counterup-1200)/20));
 	}
 }
 
