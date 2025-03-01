@@ -96,15 +96,14 @@ int main(void)
   HAL_Delay(10);
 
   leds_init();
-	timer_init(TIM2);
-	i2c_init();
-	lsm6dsl_init();
+  timer_init(TIM2);
+  i2c_init();
+  lsm6dsl_init();
   uint8_t nonDiscoverable = 0;// by default be nondiscoverable
-  //disconnectBLE();   //disconnect before setting discoverability to 0
   setDiscoverability(0);   //make it nonDiscoverable
   int16_t prev_x = 0;
-  	int16_t prev_y = 0;
-  	int16_t prev_z = 0;
+  int16_t prev_y = 0;
+  int16_t prev_z = 0;
 
 
 	//put lost detection algorithm here
@@ -128,7 +127,6 @@ int main(void)
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
 				lostFlag = 0;   //it is not lost
 				disconnectBLE();   //disconnect before setting discoverability to 0
-				//HAL_Delay(50);
 				setDiscoverability(0);    //make it nonDiscoverable
 				startTimer = 0;   //stop the 1min timer since its not lost
 			}
@@ -146,8 +144,6 @@ int main(void)
 		}
 
 		if(sendFlag) {
-
-
 			// Send a string to the NORDIC UART service, remember to not include the newline
 			unsigned char test_str[20] = "FMtag lost for";
 			snprintf(test_str, 20, "FMtag lost for %ds", numSeconds);
@@ -155,7 +151,6 @@ int main(void)
 		}
 		//HAL_Delay(50);
 		sendFlag = 0;
-		//leds_set(0);
 	}
 }
 
