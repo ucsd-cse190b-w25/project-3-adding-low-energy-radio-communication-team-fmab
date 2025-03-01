@@ -146,7 +146,7 @@ int main(void)
 		}
 
 		if(sendFlag) {
-			//HAL_Delay(50);
+
 
 			// Send a string to the NORDIC UART service, remember to not include the newline
 			unsigned char test_str[20] = "FMtag lost for";
