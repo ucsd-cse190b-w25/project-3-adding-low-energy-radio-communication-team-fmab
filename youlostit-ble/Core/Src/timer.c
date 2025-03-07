@@ -14,9 +14,9 @@ void timer_init(TIM_TypeDef* timer)
 	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;   // Enable TIM2 clock
 	timer_reset(timer);     //reset counter
 
-	timer->PSC = 7999;    //scales down to 1khz 3999
+	timer->PSC = 7999;    //scales down to 1khz
 
-	timer_set_ms(timer, 50);   //sets autoreload to 50, so that it reloads every 1/20th of a second, 20Hz
+	timer_set_ms(timer, 50000);   //sets autoreload to 50, so that it reloads every 1/20th of a second, 20Hz
 	TIM2->CR1 &= ~TIM_CR1_DIR;    //set timer to up counting mode 50
 
 

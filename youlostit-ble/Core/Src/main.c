@@ -75,10 +75,14 @@ int _write(int file, char *ptr, int len) {
 int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+
+
   HAL_Init();
 
   /* Configure the system clock */
   SystemClock_Config();
+
+  //PWR->CR1 |= PWR_CR1_LPR;   //set LPR bit in CR1 register for low power run mode
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
@@ -95,7 +99,7 @@ int main(void)
 
   HAL_Delay(10);
 
-  leds_init();
+
   timer_init(TIM2);
   i2c_init();
   lsm6dsl_init();
@@ -129,6 +133,7 @@ int main(void)
 				disconnectBLE();   //disconnect before setting discoverability to 0
 				setDiscoverability(0);    //make it nonDiscoverable
 				startTimer = 0;   //stop the 1min timer since its not lost
+				counterup = 0;    //reset the lost timer
 			}
 			else {  //it moved less than the threshold, so we say its lost
 				startTimer = 1;
@@ -149,8 +154,11 @@ int main(void)
 			snprintf(test_str, 20, "FMtag lost for %ds", numSeconds);
 			updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
 		}
-		//HAL_Delay(50);
+
 		sendFlag = 0;
+
+		//wait for interrupt instruction
+		__asm volatile ("wfi");
 	}
 }
 
@@ -182,7 +190,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = 0;
   // This lines changes system clock frequency
-  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_7;
+  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_7;    //8Mhz
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -335,20 +343,20 @@ void TIM2_IRQHandler() {
 	if(startTimer == 1) {
 		counterup = counterup + 1;  //only start counting when the thing isn't moving
 	}
-	else {
+	/*else {
 		counterup = 0;
-	}
+	}*/
 
-	if (counterup >= 1200) {
+	if (counterup >= 6) {
 		lostFlag = 1;   //it is lost
 
 		//printf("%d\n", counterup);
-		if((counterup % 200) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
+		if((counterup % 2) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
 			sendFlag = 1;
 
 		}
 
-		numSeconds = (unsigned int)(floor((counterup-1200)/20));
+		numSeconds = (unsigned int)(floor((counterup-6)*5));
 	}
 }
 
