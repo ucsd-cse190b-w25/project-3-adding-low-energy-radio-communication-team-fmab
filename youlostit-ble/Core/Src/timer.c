@@ -8,15 +8,27 @@
 #include "timer.h"
 
 
+extern volatile int lostFlag;  //0 means not lost, 1 means lost
+
 void timer_init(TIM_TypeDef* timer)
 {
   // TODO implement this
-	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;   // Enable TIM2 clock
+
+ 	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;   // Enable TIM2 clock
 	timer_reset(timer);     //reset counter
 
+	/*if(lostFlag == 0) {
+		//its at 100khz so prescale
+		//timer->PSC = 99;    //scales down to 1khz
+
+		timer_set_ms(timer, 500000);   //sets autoreload to 50, so that it reloads every 1/20th of a second, 20Hz
+	}
+	else{   //its lost so its at 8mhz*/
 	timer->PSC = 7999;    //scales down to 1khz
 
-	timer_set_ms(timer, 50000);   //sets autoreload to 50, so that it reloads every 1/20th of a second, 20Hz
+	timer_set_ms(timer, 5000);   //sets autoreload to 50, so that it reloads every 1/20th of a second, 20Hz
+
+
 	TIM2->CR1 &= ~TIM_CR1_DIR;    //set timer to up counting mode 50
 
 

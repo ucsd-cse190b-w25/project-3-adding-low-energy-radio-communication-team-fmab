@@ -76,8 +76,16 @@ int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
 
-
   HAL_Init();
+
+  //clear all clocks and enable only certain ones
+
+  RCC->AHB2ENR = 0x00000000;
+  RCC->AHB3ENR = 0x00000000;
+  RCC->APB1ENR1 = 0x00000000;
+  RCC->APB1ENR2 = 0x00000000;
+  RCC->APB2ENR = 0x00000000;
+
 
   /* Configure the system clock */
   SystemClock_Config();
@@ -108,7 +116,7 @@ int main(void)
   int16_t prev_x = 0;
   int16_t prev_y = 0;
   int16_t prev_z = 0;
-
+  printf("end of inits\n");
 
 	//put lost detection algorithm here
 	//poll continuously the values of the output registers.
@@ -130,8 +138,10 @@ int main(void)
 		if(!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
 				lostFlag = 0;   //it is not lost
+				//TIM2->PSC = 99;
 				disconnectBLE();   //disconnect before setting discoverability to 0
 				setDiscoverability(0);    //make it nonDiscoverable
+				standbyBle();   //standbyBLE when it is in nonDIscoverable mode
 				startTimer = 0;   //stop the 1min timer since its not lost
 				counterup = 0;    //reset the lost timer
 			}
@@ -145,7 +155,13 @@ int main(void)
 		prev_z = z;
 
 		if(lostFlag) {   //if it is lost, set discoverable
+			//printf("It's lost\n");
 			setDiscoverability(1);
+			//only turn on spi when we need it (when it is lost)
+			__HAL_RCC_SPI1_CLK_ENABLE();
+			__HAL_RCC_SPI2_CLK_ENABLE();
+			__HAL_RCC_SPI3_CLK_ENABLE();
+
 		}
 
 		if(sendFlag) {
@@ -329,6 +345,7 @@ void Error_Handler(void)
 
 
 void TIM2_IRQHandler() {
+	printf("Interrupt getting send\n");
 
 	  // Check if the interrupt was caused by the update event
 	if (TIM2->SR & TIM_SR_UIF) {
@@ -350,7 +367,7 @@ void TIM2_IRQHandler() {
 	if (counterup >= 6) {
 		lostFlag = 1;   //it is lost
 
-		//printf("%d\n", counterup);
+		printf("%d\n", counterup);
 		if((counterup % 2) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
 			sendFlag = 1;
 
