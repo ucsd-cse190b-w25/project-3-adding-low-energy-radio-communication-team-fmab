@@ -78,7 +78,7 @@ CopyDataInit:
 
 LoopCopyDataInit:
   adds r4, r0, r3
-  cmp r4, r1
+   cmp r4, r1
   bcc CopyDataInit
   
 /* Zero fill the bss segment. */

@@ -11,7 +11,10 @@
 
 void i2c_init() {
 	RCC->APB1ENR1 |= RCC_APB1ENR1_I2C2EN;   // Enable I2C2 clock
+	RCC->APB1SMENR1 |= RCC_APB1SMENR1_I2C2SMEN;
 	RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;   //enable GPIOB clock
+	RCC->AHB2SMENR |= RCC_AHB2SMENR_GPIOBSMEN;   //enable GPIOB clock
+
 
 	I2C2->CR1 &= ~I2C_CR1_PE; // Disable the I2C2 peripheral for configuration
 	//repeat above for PB11 pin

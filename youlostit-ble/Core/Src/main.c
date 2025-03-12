@@ -78,19 +78,35 @@ int main(void)
 
   HAL_Init();
 
-  //clear all clocks and enable only certain ones
+  //disable all clocks of all peripheals and enable only certain ones
 
+
+
+  RCC->AHB1ENR = 0x00000000;
   RCC->AHB2ENR = 0x00000000;
   RCC->AHB3ENR = 0x00000000;
   RCC->APB1ENR1 = 0x00000000;
   RCC->APB1ENR2 = 0x00000000;
   RCC->APB2ENR = 0x00000000;
+  RCC->AHB1SMENR = 0x00000000;
+  RCC->AHB2SMENR = 0x00000000;
+  RCC->AHB3SMENR = 0x00000000;
+  RCC->APB1SMENR1 = 0x00000000;
+  RCC->APB1SMENR2 = 0x00000000;
+  //RCC->APB2SMENR = 0x00000000;
+  /*RCC->AHB1RSTR = 0x00000000;
+  RCC->AHB2RSTR = 0x00000000;
+  RCC->AHB3RSTR = 0x00000000;
+  RCC->APB1RSTR1 = 0x00000000;
+  RCC->APB1RSTR2 = 0x00000000;
+  RCC->APB2RSTR = 0x00000000;*/
+
 
 
   /* Configure the system clock */
   SystemClock_Config();
 
-  //PWR->CR1 |= PWR_CR1_LPR;   //set LPR bit in CR1 register for low power run mode
+  PWR->CR1 |= PWR_CR1_LPR;   //set LPR bit in CR1 register for low power run mode
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
@@ -137,8 +153,11 @@ int main(void)
 		lsm6dsl_read_xyz(&x,&y,&z);
 		if(!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
-				lostFlag = 0;   //it is not lost
-				//TIM2->PSC = 99;
+				if(lostFlag == 1) {   //if lost, switch back to not lost and switch clock
+					lostFlag = 0;
+					//SystemClock_Config();
+					//TIM2->PSC = 999;
+				}
 				disconnectBLE();   //disconnect before setting discoverability to 0
 				setDiscoverability(0);    //make it nonDiscoverable
 				standbyBle();   //standbyBLE when it is in nonDIscoverable mode
@@ -157,10 +176,13 @@ int main(void)
 		if(lostFlag) {   //if it is lost, set discoverable
 			//printf("It's lost\n");
 			setDiscoverability(1);
+			//SystemClock_Config();
+			//TIM2->PSC = 7999;
 			//only turn on spi when we need it (when it is lost)
-			__HAL_RCC_SPI1_CLK_ENABLE();
-			__HAL_RCC_SPI2_CLK_ENABLE();
+			//__HAL_RCC_SPI1_CLK_ENABLE();
+			//__HAL_RCC_SPI2_CLK_ENABLE();
 			__HAL_RCC_SPI3_CLK_ENABLE();
+			RCC->APB1SMENR1 |= RCC_APB1SMENR1_SPI3SMEN;
 
 		}
 
@@ -174,7 +196,13 @@ int main(void)
 		sendFlag = 0;
 
 		//wait for interrupt instruction
+		//suspend tick
+		/*if(lostFlag == 0) {
+			HAL_SuspendTick();
+		}*/
+		HAL_SuspendTick();
 		__asm volatile ("wfi");
+		HAL_ResumeTick();
 	}
 }
 
@@ -189,43 +217,47 @@ int main(void)
   */
 void SystemClock_Config(void)
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+	  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+	  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-  /** Configure the main internal regulator output voltage
-  */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	  /** Configure the main internal regulator output voltage
+	  */
+	  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+	  {
+		Error_Handler();
+	  }
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
-  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
-  RCC_OscInitStruct.MSICalibrationValue = 0;
-  // This lines changes system clock frequency
-  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_7;    //8Mhz
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	  /** Initializes the RCC Oscillators according to the specified parameters
+	  * in the RCC_OscInitTypeDef structure.
+	  */
+	  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+	  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+	  RCC_OscInitStruct.MSICalibrationValue = 0;
+	  // This lines changes system clock frequency
+	  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_7;    //100khz
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+	  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	  {
+		Error_Handler();
+	  }
+
+	  /** Initializes the CPU, AHB and APB buses clocks
+	  */
+	  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+								  |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+	  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+	  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;   //scale down APB1 to lowest possible while still maintaining functionality
+	  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV16;   //scale down APB2 to lowest possible while still maintaining functionality
+
+	  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+	  {
+		Error_Handler();
+	  }
+
+
 }
 
 /**
@@ -364,7 +396,7 @@ void TIM2_IRQHandler() {
 		counterup = 0;
 	}*/
 
-	if (counterup >= 6) {
+	if (counterup >= 2) {
 		lostFlag = 1;   //it is lost
 
 		printf("%d\n", counterup);
@@ -373,7 +405,7 @@ void TIM2_IRQHandler() {
 
 		}
 
-		numSeconds = (unsigned int)(floor((counterup-6)*5));
+		numSeconds = (unsigned int)(floor((counterup-2)*5));
 	}
 }
 

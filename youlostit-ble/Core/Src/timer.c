@@ -15,6 +15,7 @@ void timer_init(TIM_TypeDef* timer)
   // TODO implement this
 
  	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;   // Enable TIM2 clock
+ 	RCC->APB1SMENR1 |= RCC_APB1SMENR1_TIM2SMEN;
 	timer_reset(timer);     //reset counter
 
 	/*if(lostFlag == 0) {
