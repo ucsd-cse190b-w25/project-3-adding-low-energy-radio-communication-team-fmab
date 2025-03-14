@@ -7,56 +7,67 @@
 
 #include "timer.h"
 
-
-extern volatile int lostFlag;  //0 means not lost, 1 means lost
-
-void lptimer_init(LPTIM_TypeDef* lptimer) {
-    // Enable the LPTIM2 clock
-    //RCC->APB1ENR1 |= RCC_APB1ENR1_LPTIM1EN;
-	RCC->CIER |= RCC_CIER_LSIRDYIE;
-	RCC->CSR |= RCC_CSR_LSION
-	while (!(RCC->CSR & RCC_CSR_LSIRDY));
-	RCC->APB!ENR1 |= rccapb1enr1lptime1en
-
-			rcc ccipr &= ~RCC_CCIPR_LPTIME1sel
-			RCC_> ccipr |= rcc_ccipr_ltptime1sel_0
-			lptime1->cr &= ~lptim_cr_enable
-			while (lptm1-> & lptim_cr_enable){}
-	LPTIM1->ICR = LPTIMRRMCF
-			LPTIMICR ARROKCF
-			LPTIM ICR CMPOKCF
-			LPTIMICR EXTTRIGCF
-			CMPCF
-			ARRMCF
-			DOWNCF
-	LPTIME1->CFGR = 0
-	LPTIME10>CFGR = (0b101 << CFGR PRESC)
-
-	LPTIME1->CNT = 0
-
-	IER LPTIM IER ARRMIE
-
-	NVIC SET PRIO LPTIM! IRQN 0}
-NVIC ENABLE IRQ LPTIM! IRQN
-
-
-
-
-}
-
-void timer_reset(TIM_TypeDef* timer)
+void lptimer_init(LPTIM_TypeDef *timer)
 {
-  // TODO implement this
-	TIM2->CR1 &= ~TIM_CR1_CEN;  //stop the timer
-	TIM2->CNT = 0x0000;  // Reset the counter to 0
+    // Enable LPTIM1 clock
+    RCC->APB1ENR1 |= RCC_APB1ENR1_LPTIM1EN;
 
+    // Select LSI as LPTIM clock source
+    RCC->CCIPR &= ~RCC_CCIPR_LPTIM1SEL;
+    RCC->CCIPR |= RCC_CCIPR_LPTIM1SEL_0; // 01: LSI selected
+
+    // Wait for LSI to be ready
+    RCC->CSR |= RCC_CSR_LSION;
+    while (!(RCC->CSR & RCC_CSR_LSIRDY))
+        ;
+
+    // Disable LPTIM before configuration
+    timer->CR &= ~LPTIM_CR_ENABLE;
+
+    // Set prescaler to 128 (maximum division for lowest power)
+    timer->CFGR &= ~LPTIM_CFGR_PRESC;
+    timer->CFGR |=
+        LPTIM_CFGR_PRESC_2 | LPTIM_CFGR_PRESC_1 | LPTIM_CFGR_PRESC_0; // 111: Prescaler = 128
+
+    // Configure for single autoreload match mode
+    timer->CFGR |= LPTIM_CFGR_WAVE;
+
+    // Enable autoreload match interrupt
+    timer->IER |= LPTIM_IER_ARRMIE;
+
+    // Clear any pending flags
+    timer->ICR |= LPTIM_ICR_ARRMCF;
+
+    // Enable LPTIM1 interrupt in NVIC
+    NVIC_EnableIRQ(LPTIM1_IRQn);
+    NVIC_SetPriority(LPTIM1_IRQn, 0);
+
+    // Enable the LPTIM
+    timer->CR |= LPTIM_CR_ENABLE;
 }
 
-void timer_set_ms(TIM_TypeDef* timer, uint16_t period_ms)
+void lptim_set_ms(uint32_t ms)
 {
-  // TODO implement this
+    // LSI frequency is approximately 32 kHz
+    // With prescaler of 128, timer frequency is 32000/128 = 250 Hz
+    // Each tick is 4 ms, so divide ms by 4
+    uint32_t ticks = ms / 4;
 
-	timer->ARR = (period_ms) - 1;
+    if (ticks > 0xFFFF)
+        ticks = 0xFFFF; // Ensure value fits in 16-bit register
+
+    // Disable LPTIM
+    LPTIM1->CR &= ~LPTIM_CR_ENABLE;
+
+    // Clear any pending flags
+    LPTIM1->ICR |= LPTIM_ICR_ARRMCF;
+
+    // Enable LPTIM
+    LPTIM1->CR |= LPTIM_CR_ENABLE;
+
+    // Write to ARR register
+    LPTIM1->ARR = ticks;
+
+    // Start the timer in continuous mode
+    LPTIM1->CR |= LPTIM_CR_CNTSTRT;
 }
-
-

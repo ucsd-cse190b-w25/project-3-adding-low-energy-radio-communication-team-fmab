@@ -31,7 +31,7 @@
 
 /* Include LED driver */
 #include "leds.h"
-#include "timer.h"
+#include "lptimer.h"
 
 /* include i2c driver*/
 #include "i2c.h"
@@ -72,64 +72,28 @@ int _write(int file, char *ptr, int len) {
     return len;
 }
 
-void disable_bus() {
-	  RCC->AHB1ENR = 0x00000000;
-	  RCC->AHB2ENR = 0x00000000;
-	  RCC->AHB3ENR = 0x00000000;
-	  //RCC->APB1ENR1 = 0x00000000;
-	  RCC->APB1ENR2 = 0x00000000;
-	  RCC->APB2ENR = 0x00000000;
-	  RCC->AHB1SMENR = 0x00000000;
-	  RCC->AHB2SMENR = 0x00000000;
-	  RCC->AHB3SMENR = 0x00000000;
-	  RCC->APB1SMENR1 = 0x00000000;
-	  RCC->APB1SMENR2 = 0x00000000;
-	  RCC->APB2SMENR = 0x00000000;
-}
-
-void disable_clocks() {
-	__HAL_RCC_I2C2_CLK_DISABLE();
-	__HAL_RCC_SPI3_CLK_DISABLE();
-	__HAL_RCC_SPI2_CLK_DISABLE();
-	__HAL_RCC_SPI1_CLK_DISABLE();
-	__HAL_RCC_GPIOA_CLK_DISABLE();
-	__HAL_RCC_GPIOB_CLK_DISABLE();
-	__HAL_RCC_GPIOC_CLK_DISABLE();
-	__HAL_RCC_GPIOD_CLK_DISABLE();
-	__HAL_RCC_GPIOE_CLK_DISABLE();
-}
-
-void enable_clocks() {
-	__HAL_RCC_I2C2_CLK_ENABLE();
-	__HAL_RCC_SPI3_CLK_ENABLE();
-	__HAL_RCC_GPIOA_CLK_ENABLE();
-	__HAL_RCC_GPIOB_CLK_ENABLE();
-	__HAL_RCC_GPIOC_CLK_ENABLE();
-	__HAL_RCC_GPIOD_CLK_ENABLE();
-	__HAL_RCC_GPIOE_CLK_ENABLE();
-}
-
-void stop_2() {
-	PWR->CR1 &= ~PWR_CR1_LPMS;
-	PWR->CR1 |= 2 << PWR_CR1_LPMS_Pos;
-	SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-	HAL_SuspendTick();
-	__asm volatile ("wfi");
-	SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
-	HAL_ResumeTick();
-}
-
 int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-
+  leds_init();
   HAL_Init();
 
   //disable all clocks of all peripheals and enable only certain ones
 
 
 
-  disable_bus();
+  RCC->AHB1ENR = 0x00000000;
+  RCC->AHB2ENR = 0x00000000;
+  RCC->AHB3ENR = 0x00000000;
+  RCC->APB1ENR1 = 0x00000000;
+  RCC->APB1ENR2 = 0x00000000;
+  RCC->APB2ENR = 0x00000000;
+  RCC->AHB1SMENR = 0x00000000;
+  RCC->AHB2SMENR = 0x00000000;
+  RCC->AHB3SMENR = 0x00000000;
+  RCC->APB1SMENR1 = 0x00000000;
+  RCC->APB1SMENR2 = 0x00000000;
+  //RCC->APB2SMENR = 0x00000000;
   /*RCC->AHB1RSTR = 0x00000000;
   RCC->AHB2RSTR = 0x00000000;
   RCC->AHB3RSTR = 0x00000000;
@@ -160,7 +124,7 @@ int main(void)
   HAL_Delay(10);
 
 
-  timer_init(TIM2);
+  lptimer_init(LPTIM1);
   i2c_init();
   lsm6dsl_init();
   uint8_t nonDiscoverable = 0;// by default be nondiscoverable
@@ -191,7 +155,6 @@ int main(void)
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
 				if(lostFlag == 1) {   //if lost, switch back to not lost and switch clock
 					lostFlag = 0;
-					//while (!(RCC->CR & RCC_CR_MSIRDY));
 					//SystemClock_Config();
 					//TIM2->PSC = 999;
 				}
@@ -237,10 +200,9 @@ int main(void)
 		/*if(lostFlag == 0) {
 			HAL_SuspendTick();
 		}*/
-		stop_2();
-
-		//get rid of TIM2 and use LPTIM instead to count and send interrupts since it wont get cucked when stopped
-		//make sure no other interrupts are actually happening for some reason
+		HAL_SuspendTick();
+		__asm volatile ("wfi");
+		HAL_ResumeTick();
 	}
 }
 
@@ -272,7 +234,7 @@ void SystemClock_Config(void)
 	  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
 	  RCC_OscInitStruct.MSICalibrationValue = 0;
 	  // This lines changes system clock frequency
-	  RCC_OscInitStruct.MSIClockRange = RCC__7;    //100khz
+	  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_7;    //100khz
 
 
 	  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
@@ -414,37 +376,47 @@ void Error_Handler(void)
 }
 
 
-void TIM2_IRQHandler() {
-	//printf("Interrupt getting send\n");
-
-	  // Check if the interrupt was caused by the update event
-	if (TIM2->SR & TIM_SR_UIF) {
-		//Clear the update interrupt flag
-		TIM2->SR &= ~TIM_SR_UIF;
-	}
-
-	//have a counter that counts up every time we enter interrupt when its lost.
-	// Enters interrupt 20 times per second (20hz), so counterup = 1200 means its been 1 min
-
-
-	if(startTimer == 1) {
-		counterup = counterup + 1;  //only start counting when the thing isn't moving
-	}
-	/*else {
-		counterup = 0;
-	}*/
-
-	if (counterup >= 2) {
-		lostFlag = 1;   //it is lost
-
-		//printf("%d\n", counterup);
-		if((counterup % 2) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
-			sendFlag = 1;
-
-		}
-
-		numSeconds = (unsigned int)(floor((counterup-2)*5));
-	}
+//void TIM2_IRQHandler() {
+//	printf("Interrupt getting send\n");
+//
+//	  // Check if the interrupt was caused by the update event
+//	if (TIM2->SR & TIM_SR_UIF) {
+//		//Clear the update interrupt flag
+//		TIM2->SR &= ~TIM_SR_UIF;
+//	}
+//
+//	//have a counter that counts up every time we enter interrupt when its lost.
+//	// Enters interrupt 20 times per second (20hz), so counterup = 1200 means its been 1 min
+//
+//
+//	if(startTimer == 1) {
+//		counterup = counterup + 1;  //only start counting when the thing isn't moving
+//	}
+//	/*else {
+//		counterup = 0;
+//	}*/
+//
+//	if (counterup >= 2) {
+//		lostFlag = 1;   //it is lost
+//
+//		printf("%d\n", counterup);
+//		if((counterup % 2) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
+//			sendFlag = 1;
+//
+//		}
+//
+//		numSeconds = (unsigned int)(floor((counterup-2)*5));
+//	}
+//}
+void LPTIM1_IRQHandler()
+{
+	leds_set(3);
+    if (LPTIM1->ISR & LPTIM_ISR_ARRM) // Check if autoreload match flag is set
+    {
+        LPTIM1->ICR |= LPTIM_ICR_ARRMCF; // Clear the flag
+        counterup++;                          // Increment the time the device has been still
+        lostFlag = 1;              // Set the interrupt flag for the main loop
+    }
 }
 
 #ifdef  USE_FULL_ASSERT
