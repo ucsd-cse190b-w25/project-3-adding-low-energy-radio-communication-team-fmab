@@ -5,4 +5,4 @@
 ../Core/Src/main.c:268:13:MX_SPI3_Init	2
 ../Core/Src/main.c:308:13:MX_GPIO_Init	1
 ../Core/Src/main.c:367:6:Error_Handler	1
-../Core/Src/main.c:411:6:LPTIM1_IRQHandler	2
+../Core/Src/main.c:411:6:LPTIM1_IRQHandler	5

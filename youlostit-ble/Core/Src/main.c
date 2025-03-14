@@ -81,18 +81,18 @@ int main(void)
   //disable all clocks of all peripheals and enable only certain ones
 
 
-
+//
   RCC->AHB1ENR = 0x00000000;
   RCC->AHB2ENR = 0x00000000;
   RCC->AHB3ENR = 0x00000000;
-  RCC->APB1ENR1 = 0x00000000;
-  RCC->APB1ENR2 = 0x00000000;
+  //RCC->APB1ENR1 = 0x00000000;
+  //RCC->APB1ENR2 = 0x00000000;
   RCC->APB2ENR = 0x00000000;
-  RCC->AHB1SMENR = 0x00000000;
+  //RCC->AHB1SMENR = 0x00000000;
   RCC->AHB2SMENR = 0x00000000;
   RCC->AHB3SMENR = 0x00000000;
-  RCC->APB1SMENR1 = 0x00000000;
-  RCC->APB1SMENR2 = 0x00000000;
+ //RCC->APB1SMENR1 = 0x00000000;
+ //RCC->APB1SMENR2 = 0x00000000;
   //RCC->APB2SMENR = 0x00000000;
   /*RCC->AHB1RSTR = 0x00000000;
   RCC->AHB2RSTR = 0x00000000;
@@ -408,17 +408,26 @@ void Error_Handler(void)
 //		numSeconds = (unsigned int)(floor((counterup-2)*5));
 //	}
 //}
-void LPTIM1_IRQHandler()
+void LPTIM1_IRQHandler(void)
 {
-	leds_set(3);
-    if (LPTIM1->ISR & LPTIM_ISR_ARRM) // Check if autoreload match flag is set
-    {
-        LPTIM1->ICR |= LPTIM_ICR_ARRMCF; // Clear the flag
-        counterup++;                          // Increment the time the device has been still
-        lostFlag = 1;              // Set the interrupt flag for the main loop
+    // Check if the autoreload match interrupt flag is set
+    if (LPTIM1->ISR & LPTIM_ISR_ARRM) {
+        // Clear the autoreload match interrupt flag
+        LPTIM1->ICR |= LPTIM_ICR_ARRMCF;
+
+        // Handle the timer logic
+        if (startTimer == 1) {
+            counterup++;
+        }
+        if (counterup >= 2) {
+            lostFlag = 1;
+            if ((counterup % 2) == 0) {
+                sendFlag = 1;
+            }
+            numSeconds = (unsigned int)(floor((counterup - 2) * 5));
+        }
     }
 }
-
 #ifdef  USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
