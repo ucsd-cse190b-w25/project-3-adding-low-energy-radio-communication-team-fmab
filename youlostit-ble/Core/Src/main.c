@@ -72,6 +72,53 @@ int _write(int file, char *ptr, int len) {
     return len;
 }
 
+void disable_bus() {
+	  RCC->AHB1ENR = 0x00000000;
+	  RCC->AHB2ENR = 0x00000000;
+	  RCC->AHB3ENR = 0x00000000;
+	  //RCC->APB1ENR1 = 0x00000000;
+	  RCC->APB1ENR2 = 0x00000000;
+	  RCC->APB2ENR = 0x00000000;
+	  RCC->AHB1SMENR = 0x00000000;
+	  RCC->AHB2SMENR = 0x00000000;
+	  RCC->AHB3SMENR = 0x00000000;
+	  RCC->APB1SMENR1 = 0x00000000;
+	  RCC->APB1SMENR2 = 0x00000000;
+	  RCC->APB2SMENR = 0x00000000;
+}
+
+void disable_clocks() {
+	__HAL_RCC_I2C2_CLK_DISABLE();
+	__HAL_RCC_SPI3_CLK_DISABLE();
+	__HAL_RCC_SPI2_CLK_DISABLE();
+	__HAL_RCC_SPI1_CLK_DISABLE();
+	__HAL_RCC_GPIOA_CLK_DISABLE();
+	__HAL_RCC_GPIOB_CLK_DISABLE();
+	__HAL_RCC_GPIOC_CLK_DISABLE();
+	__HAL_RCC_GPIOD_CLK_DISABLE();
+	__HAL_RCC_GPIOE_CLK_DISABLE();
+}
+
+void enable_clocks() {
+	__HAL_RCC_I2C2_CLK_ENABLE();
+	__HAL_RCC_SPI3_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_GPIOD_CLK_ENABLE();
+	__HAL_RCC_GPIOE_CLK_ENABLE();
+}
+
+void stop_2() {
+	PWR->CR1 &= ~PWR_CR1_LPMS;
+	PWR->CR1 |= 2 << PWR_CR1_LPMS_Pos;
+	SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+	HAL_SuspendTick();
+	__asm volatile ("wfi");
+	SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+	HAL_ResumeTick();
+}
+
 int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -82,18 +129,7 @@ int main(void)
 
 
 
-  RCC->AHB1ENR = 0x00000000;
-  RCC->AHB2ENR = 0x00000000;
-  RCC->AHB3ENR = 0x00000000;
-  RCC->APB1ENR1 = 0x00000000;
-  RCC->APB1ENR2 = 0x00000000;
-  RCC->APB2ENR = 0x00000000;
-  RCC->AHB1SMENR = 0x00000000;
-  RCC->AHB2SMENR = 0x00000000;
-  RCC->AHB3SMENR = 0x00000000;
-  RCC->APB1SMENR1 = 0x00000000;
-  RCC->APB1SMENR2 = 0x00000000;
-  //RCC->APB2SMENR = 0x00000000;
+  disable_bus();
   /*RCC->AHB1RSTR = 0x00000000;
   RCC->AHB2RSTR = 0x00000000;
   RCC->AHB3RSTR = 0x00000000;
@@ -201,13 +237,8 @@ int main(void)
 		/*if(lostFlag == 0) {
 			HAL_SuspendTick();
 		}*/
-		PWR->CR1 &= ~PWR_CR1_LPMS;
-		PWR->CR1 |= 2 << PWR_CR1_LPMS_Pos;
-		HAL_SuspendTick();
-		SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-		__asm volatile ("wfi");
-		HAL_ResumeTick();
-		SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+		stop_2();
+
 		//get rid of TIM2 and use LPTIM instead to count and send interrupts since it wont get cucked when stopped
 		//make sure no other interrupts are actually happening for some reason
 	}
@@ -241,7 +272,7 @@ void SystemClock_Config(void)
 	  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
 	  RCC_OscInitStruct.MSICalibrationValue = 0;
 	  // This lines changes system clock frequency
-	  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_7;    //100khz
+	  RCC_OscInitStruct.MSIClockRange = RCC__7;    //100khz
 
 
 	  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;

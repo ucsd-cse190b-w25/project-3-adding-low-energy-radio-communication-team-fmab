@@ -10,44 +10,35 @@
 
 extern volatile int lostFlag;  //0 means not lost, 1 means lost
 
-void lptimer_init(TIM_TypeDef* timer)
-{
-  // TODO implement this
+void lptimer_init(LPTIM_TypeDef* lptimer) {
+    // Enable the LPTIM2 clock
+    //RCC->APB1ENR1 |= RCC_APB1ENR1_LPTIM1EN;
+	RCC->CIER |= RCC_CIER_LSIRDYIE;
+	RCC->CSR |= RCC_CSR_LSION
+	while (!(RCC->CSR & RCC_CSR_LSIRDY));
+	RCC->APB!ENR1 |= rccapb1enr1lptime1en
 
- 	RCC->APB1ENR1 |= RCC_APB1ENR1_LPTIM1EN;   // Enable TIM2 clock
- 	RCC->BDCR |= RCC_BDCR_LSEON;
- 	while(!(RCC->BDCR & RCC_BDCR_LSERDY));
- 	RCC->CCIPR &= ~RCC_CCIPR_LPTIM1SEL;
- 	//RCC->APB1SMENR1 |= RCC_APB1SMENR1_LPTIM1EN;
-	timer_reset(timer);     //reset counter
-	LPTIM1->CFGR = LPTIM_CFGR_PRESC_5;
-	/*if(lostFlag == 0) {
-		//its at 100khz so prescale
-		//timer->PSC = 99;    //scales down to 1khz
+			rcc ccipr &= ~RCC_CCIPR_LPTIME1sel
+			RCC_> ccipr |= rcc_ccipr_ltptime1sel_0
+			lptime1->cr &= ~lptim_cr_enable
+			while (lptm1-> & lptim_cr_enable){}
+	LPTIM1->ICR = LPTIMRRMCF
+			LPTIMICR ARROKCF
+			LPTIM ICR CMPOKCF
+			LPTIMICR EXTTRIGCF
+			CMPCF
+			ARRMCF
+			DOWNCF
+	LPTIME1->CFGR = 0
+	LPTIME10>CFGR = (0b101 << CFGR PRESC)
 
-		timer_set_ms(timer, 500000);   //sets autoreload to 50, so that it reloads every 1/20th of a second, 20Hz
-	}
-	else{   //its lost so its at 8mhz*/
-	timer->PSC = 31;    //scales down to 1khz
+	LPTIME1->CNT = 0
 
-	timer_set_ms(timer, 5000);   //sets autoreload to 50, so that it reloads every 1/20th of a second, 20Hz
+	IER LPTIM IER ARRMIE
 
+	NVIC SET PRIO LPTIM! IRQN 0}
+NVIC ENABLE IRQ LPTIM! IRQN
 
-	LPTIM1->IER |= LPTIM_IER_ARRMIE;
-	//->CR1 &= ~TIM_CR1_DIR;    //set timer to up counting mode 50
-
-
-
-    // 6. Enable the timer interrupt for update events
-    TIM2->DIER |= TIM_DIER_UIE;  // Enable update interrupt
-
-
-    // 7. Enable the timer interrupt in the NVIC
-    NVIC_EnableIRQ(TIM2_IRQn);  // Enable TIM2 interrupt in NVIC
-    NVIC_SetPriority(TIM2_IRQn, 1);  // Set priority to 1 (lower number = higher priority)
-
-    // 8. Start the timer
-    TIM2->CR1 |= TIM_CR1_CEN;   // Enable the timer (start counting)
 
 
 
