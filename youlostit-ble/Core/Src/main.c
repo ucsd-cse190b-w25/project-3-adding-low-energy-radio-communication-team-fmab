@@ -155,6 +155,7 @@ int main(void)
 			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
 				if(lostFlag == 1) {   //if lost, switch back to not lost and switch clock
 					lostFlag = 0;
+					//while (!(RCC->CR & RCC_CR_MSIRDY));
 					//SystemClock_Config();
 					//TIM2->PSC = 999;
 				}
@@ -200,9 +201,15 @@ int main(void)
 		/*if(lostFlag == 0) {
 			HAL_SuspendTick();
 		}*/
+		PWR->CR1 &= ~PWR_CR1_LPMS;
+		PWR->CR1 |= 2 << PWR_CR1_LPMS_Pos;
 		HAL_SuspendTick();
+		SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
 		__asm volatile ("wfi");
 		HAL_ResumeTick();
+		SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+		//get rid of TIM2 and use LPTIM instead to count and send interrupts since it wont get cucked when stopped
+		//make sure no other interrupts are actually happening for some reason
 	}
 }
 
@@ -377,7 +384,7 @@ void Error_Handler(void)
 
 
 void TIM2_IRQHandler() {
-	printf("Interrupt getting send\n");
+	//printf("Interrupt getting send\n");
 
 	  // Check if the interrupt was caused by the update event
 	if (TIM2->SR & TIM_SR_UIF) {
@@ -399,7 +406,7 @@ void TIM2_IRQHandler() {
 	if (counterup >= 2) {
 		lostFlag = 1;   //it is lost
 
-		printf("%d\n", counterup);
+		//printf("%d\n", counterup);
 		if((counterup % 2) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
 			sendFlag = 1;
 
