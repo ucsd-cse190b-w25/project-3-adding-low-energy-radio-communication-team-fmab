@@ -72,6 +72,53 @@ int _write(int file, char *ptr, int len) {
     return len;
 }
 
+void disable_bus() {
+	  RCC->AHB1ENR = 0x00000000;
+	  RCC->AHB2ENR = 0x00000000;
+	  RCC->AHB3ENR = 0x00000000;
+	  //RCC->APB1ENR1 = 0x00000000;
+	  //RCC->APB1ENR2 = 0x00000000;
+	  RCC->APB2ENR = 0x00000000;
+	  RCC->AHB1SMENR = 0x00000000;
+	  RCC->AHB2SMENR = 0x00000000;
+	  RCC->AHB3SMENR = 0x00000000;
+	  //RCC->APB1SMENR1 = 0x00000000;
+	  //RCC->APB1SMENR2 = 0x00000000;
+	  RCC->APB2SMENR = 0x00000000;
+}
+
+void disable_clocks() {
+	__HAL_RCC_I2C2_CLK_DISABLE();
+	__HAL_RCC_SPI3_CLK_DISABLE();
+	__HAL_RCC_SPI2_CLK_DISABLE();
+	__HAL_RCC_SPI1_CLK_DISABLE();
+	__HAL_RCC_GPIOA_CLK_DISABLE();
+	__HAL_RCC_GPIOB_CLK_DISABLE();
+	__HAL_RCC_GPIOC_CLK_DISABLE();
+	__HAL_RCC_GPIOD_CLK_DISABLE();
+	__HAL_RCC_GPIOE_CLK_DISABLE();
+}
+
+void enable_clocks() {
+	__HAL_RCC_I2C2_CLK_ENABLE();
+	__HAL_RCC_SPI3_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_GPIOD_CLK_ENABLE();
+	__HAL_RCC_GPIOE_CLK_ENABLE();
+}
+
+void stop_2() {
+	PWR->CR1 &= ~PWR_CR1_LPMS;
+	PWR->CR1 |= 2 << PWR_CR1_LPMS_Pos;
+	SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+	HAL_SuspendTick();
+	__asm volatile ("wfi");
+	SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+	HAL_ResumeTick();
+}
+
 int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -125,6 +172,7 @@ int main(void)
 
 
   lptimer_init(LPTIM1);
+  lptim_set_ms(2500);  // 5-second period
   i2c_init();
   lsm6dsl_init();
   uint8_t nonDiscoverable = 0;// by default be nondiscoverable
@@ -157,6 +205,8 @@ int main(void)
 					lostFlag = 0;
 					//SystemClock_Config();
 					//TIM2->PSC = 999;
+					disable_clocks();
+
 				}
 				disconnectBLE();   //disconnect before setting discoverability to 0
 				setDiscoverability(0);    //make it nonDiscoverable
@@ -166,7 +216,7 @@ int main(void)
 			}
 			else {  //it moved less than the threshold, so we say its lost
 				startTimer = 1;
-
+				enable_clocks();
 			}
 		}
 		prev_x = x;   //set prev to be equal to the current x
@@ -181,8 +231,8 @@ int main(void)
 			//only turn on spi when we need it (when it is lost)
 			//__HAL_RCC_SPI1_CLK_ENABLE();
 			//__HAL_RCC_SPI2_CLK_ENABLE();
-			__HAL_RCC_SPI3_CLK_ENABLE();
-			RCC->APB1SMENR1 |= RCC_APB1SMENR1_SPI3SMEN;
+//			__HAL_RCC_SPI3_CLK_ENABLE();
+//			RCC->APB1SMENR1 |= RCC_APB1SMENR1_SPI3SMEN;
 
 		}
 
@@ -195,14 +245,10 @@ int main(void)
 
 		sendFlag = 0;
 
-		//wait for interrupt instruction
-		//suspend tick
-		/*if(lostFlag == 0) {
-			HAL_SuspendTick();
-		}*/
 		HAL_SuspendTick();
 		__asm volatile ("wfi");
 		HAL_ResumeTick();
+		stop_2();
 	}
 }
 
