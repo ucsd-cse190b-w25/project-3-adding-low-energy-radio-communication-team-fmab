@@ -375,39 +375,6 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
-
-//void TIM2_IRQHandler() {
-//	printf("Interrupt getting send\n");
-//
-//	  // Check if the interrupt was caused by the update event
-//	if (TIM2->SR & TIM_SR_UIF) {
-//		//Clear the update interrupt flag
-//		TIM2->SR &= ~TIM_SR_UIF;
-//	}
-//
-//	//have a counter that counts up every time we enter interrupt when its lost.
-//	// Enters interrupt 20 times per second (20hz), so counterup = 1200 means its been 1 min
-//
-//
-//	if(startTimer == 1) {
-//		counterup = counterup + 1;  //only start counting when the thing isn't moving
-//	}
-//	/*else {
-//		counterup = 0;
-//	}*/
-//
-//	if (counterup >= 2) {
-//		lostFlag = 1;   //it is lost
-//
-//		printf("%d\n", counterup);
-//		if((counterup % 2) == 0) {   //check if counterup is a multiple of 200 (multiple  of 200 marks 10 second intervals)
-//			sendFlag = 1;
-//
-//		}
-//
-//		numSeconds = (unsigned int)(floor((counterup-2)*5));
-//	}
-//}
 void LPTIM1_IRQHandler(void)
 {
     // Check if the autoreload match interrupt flag is set

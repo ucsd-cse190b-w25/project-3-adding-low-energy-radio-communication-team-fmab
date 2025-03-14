@@ -10,8 +10,8 @@
 
 #include "stm32l4xx.h"  // Adjust this if you're using a different STM32 family
 
-void lptimer_init(LPTIM_TypeDef* lptimer);
-//void lptimer_reset(LPTIM_TypeDef* lptimer);
+void lptimer_init(LPTIM_TypeDef* timer);
+void lptimer_reset(LPTIM_TypeDef* timer);
 void lptim_set_ms(uint32_t ms);
 //void LPTIM1_IRQHandler(void);
 
