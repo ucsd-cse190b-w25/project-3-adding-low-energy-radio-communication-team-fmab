@@ -9,6 +9,8 @@
 
 void lptimer_init(LPTIM_TypeDef *timer)
 {
+	RCC->CIER |= RCC_CIER_LSIRDYIE;  // Enable LSI Ready interrupt
+
     // Enable LPTIM1 clock
     RCC->APB1ENR1 |= RCC_APB1ENR1_LPTIM1EN;
     lptimer_reset(timer);
@@ -25,7 +27,7 @@ void lptimer_init(LPTIM_TypeDef *timer)
 
     // Configure LPTIM1 prescaler
     timer->CFGR &= ~LPTIM_CFGR_PRESC;  // Clear prescaler bits
-    timer->CFGR |= (0b101 << LPTIM_CFGR_PRESC_Pos);  // Set prescaler to divide by 16 (32 kHz / 32 = 1 kHz)
+    timer->CFGR |= (0b101 << LPTIM_CFGR_PRESC_Pos);  // Set prescaler to divide by 32 (32 kHz / 32 = 1 kHz)
 
     // Clear all interrupt flags
     timer->ICR |= LPTIM_ICR_ARRMCF | LPTIM_ICR_CMPOKCF | LPTIM_ICR_EXTTRIGCF | LPTIM_ICR_CMPMCF | LPTIM_ICR_DOWNCF;

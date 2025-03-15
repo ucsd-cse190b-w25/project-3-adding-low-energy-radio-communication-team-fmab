@@ -77,18 +77,18 @@ void disable_bus() {
 	  RCC->AHB2ENR = 0x00000000;
 	  RCC->AHB3ENR = 0x00000000;
 	  //RCC->APB1ENR1 = 0x00000000;
-	  //RCC->APB1ENR2 = 0x00000000;
+	  RCC->APB1ENR2 = 0x00000000;
 	  RCC->APB2ENR = 0x00000000;
 	  RCC->AHB1SMENR = 0x00000000;
 	  RCC->AHB2SMENR = 0x00000000;
 	  RCC->AHB3SMENR = 0x00000000;
 	  //RCC->APB1SMENR1 = 0x00000000;
-	  //RCC->APB1SMENR2 = 0x00000000;
+	  RCC->APB1SMENR2 = 0x00000000;
 	  RCC->APB2SMENR = 0x00000000;
 }
 
 void disable_clocks() {
-	__HAL_RCC_I2C2_CLK_DISABLE();
+	//__HAL_RCC_I2C2_CLK_DISABLE();
 	__HAL_RCC_SPI3_CLK_DISABLE();
 	__HAL_RCC_SPI2_CLK_DISABLE();
 	__HAL_RCC_SPI1_CLK_DISABLE();
@@ -100,7 +100,7 @@ void disable_clocks() {
 }
 
 void enable_clocks() {
-	__HAL_RCC_I2C2_CLK_ENABLE();
+	//__HAL_RCC_I2C2_CLK_ENABLE();
 	__HAL_RCC_SPI3_CLK_ENABLE();
 	__HAL_RCC_GPIOA_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
@@ -122,38 +122,19 @@ void stop_2() {
 int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  leds_init();
+ // leds_init();
   HAL_Init();
 
   //disable all clocks of all peripheals and enable only certain ones
 
 
-//
-  RCC->AHB1ENR = 0x00000000;
-  RCC->AHB2ENR = 0x00000000;
-  RCC->AHB3ENR = 0x00000000;
-  //RCC->APB1ENR1 = 0x00000000;
-  //RCC->APB1ENR2 = 0x00000000;
-  RCC->APB2ENR = 0x00000000;
-  //RCC->AHB1SMENR = 0x00000000;
-  RCC->AHB2SMENR = 0x00000000;
-  RCC->AHB3SMENR = 0x00000000;
- //RCC->APB1SMENR1 = 0x00000000;
- //RCC->APB1SMENR2 = 0x00000000;
-  //RCC->APB2SMENR = 0x00000000;
-  /*RCC->AHB1RSTR = 0x00000000;
-  RCC->AHB2RSTR = 0x00000000;
-  RCC->AHB3RSTR = 0x00000000;
-  RCC->APB1RSTR1 = 0x00000000;
-  RCC->APB1RSTR2 = 0x00000000;
-  RCC->APB2RSTR = 0x00000000;*/
-
 
 
   /* Configure the system clock */
   SystemClock_Config();
+  disable_bus();
 
-  PWR->CR1 |= PWR_CR1_LPR;   //set LPR bit in CR1 register for low power run mode
+  //PWR->CR1 |= PWR_CR1_LPR;   //set LPR bit in CR1 register for low power run mode
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
@@ -172,7 +153,7 @@ int main(void)
 
 
   lptimer_init(LPTIM1);
-  lptim_set_ms(2500);  // 5-second period
+  lptim_set_ms(5000);  // 5-second period
   i2c_init();
   lsm6dsl_init();
   uint8_t nonDiscoverable = 0;// by default be nondiscoverable
@@ -205,7 +186,7 @@ int main(void)
 					lostFlag = 0;
 					//SystemClock_Config();
 					//TIM2->PSC = 999;
-					disable_clocks();
+					//disable_clocks();
 
 				}
 				disconnectBLE();   //disconnect before setting discoverability to 0
@@ -216,7 +197,7 @@ int main(void)
 			}
 			else {  //it moved less than the threshold, so we say its lost
 				startTimer = 1;
-				enable_clocks();
+				//enable_clocks();
 			}
 		}
 		prev_x = x;   //set prev to be equal to the current x
@@ -245,10 +226,14 @@ int main(void)
 
 		sendFlag = 0;
 
+//		HAL_SuspendTick();
+//		__asm volatile ("wfi");
+//		HAL_ResumeTick();
+		//stop_2();
+
 		HAL_SuspendTick();
-		__asm volatile ("wfi");
+		HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
 		HAL_ResumeTick();
-		stop_2();
 	}
 }
 

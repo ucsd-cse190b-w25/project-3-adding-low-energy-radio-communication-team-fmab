@@ -5,8 +5,8 @@
 ../Core/Src/main.c:102:6:enable_clocks	1
 ../Core/Src/main.c:112:6:stop_2	1
 ../Core/Src/main.c:122:5:main	14
-../Core/Src/main.c:264:6:SystemClock_Config	4
-../Core/Src/main.c:314:13:MX_SPI3_Init	2
-../Core/Src/main.c:354:13:MX_GPIO_Init	1
-../Core/Src/main.c:413:6:Error_Handler	1
-../Core/Src/main.c:424:6:LPTIM1_IRQHandler	5
+../Core/Src/main.c:249:6:SystemClock_Config	4
+../Core/Src/main.c:299:13:MX_SPI3_Init	2
+../Core/Src/main.c:339:13:MX_GPIO_Init	1
+../Core/Src/main.c:398:6:Error_Handler	1
+../Core/Src/main.c:409:6:LPTIM1_IRQHandler	5
