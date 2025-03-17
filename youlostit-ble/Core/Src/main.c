@@ -119,7 +119,6 @@ int main(void) {
     uint8_t nonDiscoverable = 0; // By default, be non-discoverable
     setDiscoverability(0);       // Make it non-discoverable
     standbyBle(); // Put BLE module in standby mode
-    __HAL_RCC_SPI3_CLK_DISABLE();
 
     // Initialize variables for accelerometer data
     int16_t prev_x = 0;
@@ -150,11 +149,9 @@ int main(void) {
                 standbyBle();      // Put BLE in standby mode
                 startTimer = 0;    // Stop the 60-second timer
                 counterup = 0;     // Reset the lost timer
-		__HAL_RCC_SPI3_CLK_DISABLE();
             } else {
                 // Device is not moving (considered "lost")
                 startTimer = 1; // Start the 60-second timer
-		__HAL_RCC_SPI3_CLK_ENABLE();
             }
         }
         prev_x = x;
@@ -174,7 +171,7 @@ int main(void) {
             sendFlag = 0;
         }
 
-        // Enter STOP2 mode to save power
+        // Enter STOP2 mode to save power and suspend Systick
         HAL_SuspendTick();
         HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
         HAL_ResumeTick();
@@ -356,6 +353,7 @@ void LPTIM1_IRQHandler(void)
         LPTIM1->ICR |= LPTIM_ICR_ARRMCF;
 
         // Handle the timer logic
+        // LPTIM1 ARR is 5 seconds, so it increments counterup every 5 seconds, so when counterup = 2 that's 10 seconds
         if (startTimer == 1) {
             counterup++;
         }
