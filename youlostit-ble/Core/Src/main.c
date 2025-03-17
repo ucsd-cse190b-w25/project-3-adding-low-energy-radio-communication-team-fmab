@@ -119,6 +119,7 @@ int main(void) {
     uint8_t nonDiscoverable = 0; // By default, be non-discoverable
     setDiscoverability(0);       // Make it non-discoverable
     standbyBle(); // Put BLE module in standby mode
+    __HAL_RCC_SPI3_CLK_DISABLE();
 
     // Initialize variables for accelerometer data
     int16_t prev_x = 0;
@@ -149,9 +150,11 @@ int main(void) {
                 standbyBle();      // Put BLE in standby mode
                 startTimer = 0;    // Stop the 60-second timer
                 counterup = 0;     // Reset the lost timer
+		__HAL_RCC_SPI3_CLK_DISABLE();
             } else {
                 // Device is not moving (considered "lost")
                 startTimer = 1; // Start the 60-second timer
+		__HAL_RCC_SPI3_CLK_ENABLE();
             }
         }
         prev_x = x;
