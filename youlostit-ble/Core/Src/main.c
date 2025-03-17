@@ -112,10 +112,12 @@ int main(void) {
     HAL_Delay(10);
     HAL_GPIO_WritePin(BLE_RESET_GPIO_Port, BLE_RESET_Pin, GPIO_PIN_SET);
     ble_init();
+    HAL_Delay(100); // Wait for BLE module to stabilize
 
     // Set BLE to non-discoverable mode
     uint8_t nonDiscoverable = 0; // By default, be non-discoverable
     setDiscoverability(0);       // Make it non-discoverable
+    standbyBle(); // Put BLE module in standby mode
 
     // Initialize variables for accelerometer data
     int16_t prev_x = 0;
