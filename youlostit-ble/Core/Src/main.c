@@ -87,38 +87,6 @@ void disable_bus() {
 	  RCC->APB2SMENR = 0x00000000;
 }
 
-void disable_clocks() {
-	//__HAL_RCC_I2C2_CLK_DISABLE();
-	__HAL_RCC_SPI3_CLK_DISABLE();
-	__HAL_RCC_SPI2_CLK_DISABLE();
-	__HAL_RCC_SPI1_CLK_DISABLE();
-	__HAL_RCC_GPIOA_CLK_DISABLE();
-	__HAL_RCC_GPIOB_CLK_DISABLE();
-	__HAL_RCC_GPIOC_CLK_DISABLE();
-	__HAL_RCC_GPIOD_CLK_DISABLE();
-	__HAL_RCC_GPIOE_CLK_DISABLE();
-}
-
-void enable_clocks() {
-	//__HAL_RCC_I2C2_CLK_ENABLE();
-	__HAL_RCC_SPI3_CLK_ENABLE();
-	__HAL_RCC_GPIOA_CLK_ENABLE();
-	__HAL_RCC_GPIOB_CLK_ENABLE();
-	__HAL_RCC_GPIOC_CLK_ENABLE();
-	__HAL_RCC_GPIOD_CLK_ENABLE();
-	__HAL_RCC_GPIOE_CLK_ENABLE();
-}
-
-void stop_2() {
-	PWR->CR1 &= ~PWR_CR1_LPMS;
-	PWR->CR1 |= 2 << PWR_CR1_LPMS_Pos;
-	SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-	HAL_SuspendTick();
-	__asm volatile ("wfi");
-	SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
-	HAL_ResumeTick();
-}
-
 int main(void) {
     // Reset of all peripherals, Initializes the Flash interface and the Systick.
     HAL_Init();
