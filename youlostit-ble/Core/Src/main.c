@@ -115,6 +115,7 @@ int main(void) {
     HAL_Delay(100); // Wait for BLE module to stabilize
 
     // Set BLE to non-discoverable mode
+    disconnectBLE(); 
     uint8_t nonDiscoverable = 0; // By default, be non-discoverable
     setDiscoverability(0);       // Make it non-discoverable
     standbyBle(); // Put BLE module in standby mode
