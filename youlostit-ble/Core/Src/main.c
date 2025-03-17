@@ -119,125 +119,93 @@ void stop_2() {
 	HAL_ResumeTick();
 }
 
-int main(void)
-{
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
- // leds_init();
-  HAL_Init();
+int main(void) {
+    // Reset of all peripherals, Initializes the Flash interface and the Systick.
+    HAL_Init();
 
-  //disable all clocks of all peripheals and enable only certain ones
+    // Configure the system clock
+    SystemClock_Config();
+    disable_bus();
 
+    // Initialize all configured peripherals
+    MX_GPIO_Init();
+    MX_SPI3_Init();
 
+    // Initialize LPTIM for the 60-second timer
+    lptimer_init(LPTIM1);
+    lptim_set_ms(5000);  // 5-second period
 
+    // Initialize I2C and accelerometer
+    i2c_init();
+    lsm6dsl_init();
 
-  /* Configure the system clock */
-  SystemClock_Config();
-  disable_bus();
+    // Initialize BLE module
+    HAL_GPIO_WritePin(BLE_RESET_GPIO_Port, BLE_RESET_Pin, GPIO_PIN_RESET);
+    HAL_Delay(10);
+    HAL_GPIO_WritePin(BLE_RESET_GPIO_Port, BLE_RESET_Pin, GPIO_PIN_SET);
+    ble_init();
 
-  //PWR->CR1 |= PWR_CR1_LPR;   //set LPR bit in CR1 register for low power run mode
+    // Set BLE to non-discoverable mode
+    uint8_t nonDiscoverable = 0; // By default, be non-discoverable
+    setDiscoverability(0);       // Make it non-discoverable
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_SPI3_Init();
+    // Initialize variables for accelerometer data
+    int16_t prev_x = 0;
+    int16_t prev_y = 0;
+    int16_t prev_z = 0;
+    printf("End of inits\n");
 
-  //RESET BLE MODULE
-  HAL_GPIO_WritePin(BLE_RESET_GPIO_Port,BLE_RESET_Pin,GPIO_PIN_RESET);
-  HAL_Delay(10);
-  HAL_GPIO_WritePin(BLE_RESET_GPIO_Port,BLE_RESET_Pin,GPIO_PIN_SET);
+    // Main loop
+    while (1) {
+        // Check if BLE interrupt is active
+        if (!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port, BLE_INT_Pin)) {
+            catchBLE();
+        }
 
-  ble_init();
+        // Read accelerometer data
+        int16_t x, y, z;
+        lsm6dsl_read_xyz(&x, &y, &z);
 
+        // Check if the device is moving
+        if (!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
+            if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {
+                // Device is moving
+                if (lostFlag == 1) {
+                    lostFlag = 0; // Switch back to "not lost"
+                }
+                disconnectBLE();    // Disconnect before setting discoverability to 0
+                setDiscoverability(0); // Make it non-discoverable
+                standbyBle();      // Put BLE in standby mode
+                startTimer = 0;    // Stop the 60-second timer
+                counterup = 0;     // Reset the lost timer
+            } else {
+                // Device is not moving (considered "lost")
+                startTimer = 1; // Start the 60-second timer
+            }
+        }
+        prev_x = x;
+        prev_y = y;
+        prev_z = z;
 
+        // If the device is lost, set it to discoverable
+        if (lostFlag) {
+            setDiscoverability(1);
+        }
 
-  HAL_Delay(10);
+        // Send a message if the sendFlag is set
+        if (sendFlag) {
+            unsigned char test_str[20] = "FMtag lost for";
+            snprintf(test_str, 20, "FMtag lost for %ds", numSeconds);
+            updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str) - 1, test_str);
+            sendFlag = 0;
+        }
 
-
-  lptimer_init(LPTIM1);
-  lptim_set_ms(5000);  // 5-second period
-  i2c_init();
-  lsm6dsl_init();
-  uint8_t nonDiscoverable = 0;// by default be nondiscoverable
-  setDiscoverability(0);   //make it nonDiscoverable
-  int16_t prev_x = 0;
-  int16_t prev_y = 0;
-  int16_t prev_z = 0;
-  printf("end of inits\n");
-
-	//put lost detection algorithm here
-	//poll continuously the values of the output registers.
-
-	if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
-	catchBLE();
-	printf("it is here\n");
-	// Loop forever
-	}
-
-	while(1) {
-		if(!nonDiscoverable && HAL_GPIO_ReadPin(BLE_INT_GPIO_Port,BLE_INT_Pin)){
-			catchBLE();
-		}
-		int16_t x;
-		int16_t y;
-		int16_t z;
-		lsm6dsl_read_xyz(&x,&y,&z);
-		if(!(prev_x == 0 && prev_y == 0 && prev_z == 0)) {
-			if (abs(x - prev_x) >= threshold || abs(y - prev_y) >= threshold || abs(z - prev_z) >= threshold) {  //it is moving
-				if(lostFlag == 1) {   //if lost, switch back to not lost and switch clock
-					lostFlag = 0;
-					//SystemClock_Config();
-					//TIM2->PSC = 999;
-					//disable_clocks();
-
-				}
-				disconnectBLE();   //disconnect before setting discoverability to 0
-				setDiscoverability(0);    //make it nonDiscoverable
-				standbyBle();   //standbyBLE when it is in nonDIscoverable mode
-				startTimer = 0;   //stop the 1min timer since its not lost
-				counterup = 0;    //reset the lost timer
-			}
-			else {  //it moved less than the threshold, so we say its lost
-				startTimer = 1;
-				//enable_clocks();
-			}
-		}
-		prev_x = x;   //set prev to be equal to the current x
-		prev_y = y;
-		prev_z = z;
-
-		if(lostFlag) {   //if it is lost, set discoverable
-			//printf("It's lost\n");
-			setDiscoverability(1);
-			//SystemClock_Config();
-			//TIM2->PSC = 7999;
-			//only turn on spi when we need it (when it is lost)
-			//__HAL_RCC_SPI1_CLK_ENABLE();
-			//__HAL_RCC_SPI2_CLK_ENABLE();
-//			__HAL_RCC_SPI3_CLK_ENABLE();
-//			RCC->APB1SMENR1 |= RCC_APB1SMENR1_SPI3SMEN;
-
-		}
-
-		if(sendFlag) {
-			// Send a string to the NORDIC UART service, remember to not include the newline
-			unsigned char test_str[20] = "FMtag lost for";
-			snprintf(test_str, 20, "FMtag lost for %ds", numSeconds);
-			updateCharValue(NORDIC_UART_SERVICE_HANDLE, READ_CHAR_HANDLE, 0, sizeof(test_str)-1, test_str);
-		}
-
-		sendFlag = 0;
-
-//		HAL_SuspendTick();
-//		__asm volatile ("wfi");
-//		HAL_ResumeTick();
-		//stop_2();
-
-		HAL_SuspendTick();
-		HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
-		HAL_ResumeTick();
-	}
+        // Enter STOP2 mode to save power
+        HAL_SuspendTick();
+        HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
+        HAL_ResumeTick();
+    }
 }
-
-
 
 
 
