@@ -355,12 +355,12 @@ void LPTIM1_IRQHandler(void)
         if (startTimer == 1) {
             counterup++;
         }
-        if (counterup >= 2) {
+        if (counterup >= 12) {
             lostFlag = 1;
             if ((counterup % 2) == 0) {
                 sendFlag = 1;
             }
-            numSeconds = (unsigned int)(floor((counterup - 2) * 5));
+            numSeconds = (unsigned int)(floor((counterup - 12) * 5));
         }
     }
 }
